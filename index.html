@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Myうちわ - アップロード版</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background-color: #f9f9f9;
+      margin: 0;
+      padding: 10px;
+    }
+    #canvasWrapper {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      aspect-ratio: 4 / 3;
+      margin: 0 auto;
+      background-color: #000;
+    }
+    #mainCanvas {
+      width: 100%;
+      height: auto;
+      background-color: white;
+      touch-action: none;
+    }
+    #templateSelector, #imageLoader, #saveBtn {
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    #langButtons button {
+      margin: 0 5px;
+      padding: 5px 10px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    #notice {
+      margin-top: 10px;
+      font-size: 12px;
+      color: green;
+    }
+    @media print {
+      body *:not(.fan-print) {
+        display: none !important;
+      }
+      #mainCanvas {
+        width: 100%;
+        height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="langButtons">
+    <button onclick="setLanguage('ja')">日本語</button>
+    <button onclick="setLanguage('en')">English</button>
+    <button onclick="setLanguage('zh')">中文</button>
+    <button onclick="setLanguage('ko')">한국어</button>
+    <button onclick="setLanguage('vi')">Tiếng Việt</button>
+  </div>
+
+  <h1 id="title" data-ja="作っちゃおう！Myうちわ" data-en="Let's Make Our Own Fan!" data-zh="一起来制作我们的团扇！" data-ko="우리만의 부채를 만들어보자!" data-vi="Hãy cùng làm quạt giấy của riêng mình!">作っちゃおう！Myうちわ</h1>
+
+  <label id="templateLabel" data-ja="🎨 うちわのデザインを選んでね：" data-en="🎨 Choose a fan design:" data-zh="🎨 请选择一个团扇设计：" data-ko="🎨 부채 디자인을 선택하세요:" data-vi="🎨 Chọn thiết kế quạt:">🎨 うちわのデザインを選んでね：</label>
+  <select id="templateSelector">
+    <option value="fan1-highres.png">無地</option>
+    <option value="fan2-highres.png">夏祭り</option>
+    <option value="fan3-highres.png">父の日</option>
+  </select>
+
+  <br />
+  <input type="file" id="imageLoader" accept="image/*" />
+  <br />
+  <button id="saveBtn">💾 保存する</button>
+  <p id="notice"></p>
+
+  <div id="canvasWrapper">
+    <canvas id="mainCanvas" width="3508" height="2480"></canvas>
+  </div>
+
+  <footer style="font-size: 6px; color: #888; margin-top: 20px;">
+    © 2025 Chugoku Shimbun Hanbai Center. Web application developed by Hitomi Sasaki. All rights reserved.<br>
+    このウェブアプリケーションは、株式会社中国新聞販売センターの従業員による地域イベント向けの自主開発プロジェクトです。<br>
+    ※本アプリは公式サービスではありませんが、業務との親和性を考慮して使用されています。
+  </footer>
+
+  <script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    let uploadedImg = null;
+    let imgX = 100, imgY = 100, scale = 1, rotation = 0;
+    let isDragging = false, lastX, lastY;
+
+    const templateSelector = document.getElementById('templateSelector');
+    let templateImg = new Image();
+    templateImg.src = templateSelector.value;
+
+    templateSelector.addEventListener('change', () => {
+      templateImg.src = templateSelector.value;
+      draw();
+    });
+
+    templateImg.onload = () => draw();
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (uploadedImg) {
+        ctx.save();
+        ctx.translate(imgX, imgY);
+        ctx.rotate(rotation);
+        ctx.scale(scale, scale);
+        ctx.drawImage(uploadedImg, -uploadedImg.width / 2, -uploadedImg.height / 2);
+        ctx.restore();
+      }
+      if (templateImg.complete) {
+        ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
+      }
+    }
+
+    document.getElementById('imageLoader').addEventListener('change', function(e) {
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        uploadedImg = new Image();
+        uploadedImg.onload = () => {
+          imgX = canvas.width / 2;
+          imgY = canvas.height / 2;
+          scale = 1;
+          rotation = 0;
+          draw();
+        };
+        uploadedImg.src = event.target.result;
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    });
+
+    canvas.addEventListener('mousedown', e => {
+      isDragging = true;
+      lastX = e.offsetX;
+      lastY = e.offsetY;
+    });
+
+    canvas.addEventListener('mousemove', e => {
+      if (isDragging && uploadedImg) {
+        imgX += e.offsetX - lastX;
+        imgY += e.offsetY - lastY;
+        lastX = e.offsetX;
+        lastY = e.offsetY;
+        draw();
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => isDragging = false);
+    canvas.addEventListener('wheel', e => {
+      if (uploadedImg) {
+        scale += e.deltaY * -0.001;
+        scale = Math.max(0.1, Math.min(5, scale));
+        draw();
+      }
+      e.preventDefault();
+    });
+
+    window.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft') rotation -= 0.05;
+      if (e.key === 'ArrowRight') rotation += 0.05;
+      draw();
+    });
+
+    document.getElementById('saveBtn').addEventListener('click', () => {
+      const link = document.createElement('a');
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = getTimestampBasedFileName();
+        link.click();
+        document.getElementById('notice').textContent = '📸 保存しました！';
+      });
+    });
+
+    function setLanguage(lang) {
+      document.querySelectorAll('[data-ja]').forEach(el => {
+        if (el.dataset[lang]) {
+          el.innerHTML = el.dataset[lang];
+        }
+      });
+    }
+
+    function getTimestampBasedFileName() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      const h = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const slot = Math.floor(parseInt(min) / 30) * 30;
+      const slotStr = String(slot).padStart(2, '0');
+      const rand = Math.floor(Math.random() * 900) + 100;
+      return `uchiwa_${y}${m}${d}_${h}${slotStr}_${rand}.png`;
+    }
+  </script>
+</body>
+</html>
